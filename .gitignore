@@ -1,16 +1,1 @@
-# FMU Generation Template - Clean
-
-Essential files only. Ready for Git or client delivery.
-
-Keep:
-- project.yaml / project.yaml.example
-- CLIENT_QUESTIONNAIRE.md
-- build/ folder
-- input/src/ (place client .mo files here)
-- output/ (generated FMUs)
-- tests/test_fmu.py (optional validation)
-
-Generated files (don't commit to Git):
-- build/generated_build.mos (auto-created)
-- output/*.fmu (build artifacts)
-__pycache__/
+__pycache__\

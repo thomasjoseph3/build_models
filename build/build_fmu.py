@@ -16,7 +16,8 @@ PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 INPUT_DIR = PROJECT_ROOT / "input"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 BUILD_DIR = PROJECT_ROOT / "build"
-CONFIG_FILE = PROJECT_ROOT / "project.yaml"
+TEST_DATA_DIR = PROJECT_ROOT / "input" / "test_data"
+CONFIG_FILE = PROJECT_ROOT / "input" / "project.yaml"
 
 def log(msg):
     """Print with visual separator"""
@@ -128,9 +129,10 @@ def generate_build_script(config):
     script += f'    fileNamePrefix="{fmu_config.get("output_name", "DigitalTwin")}",\n'
     script += f'    platforms={{"{fmu_config.get("platform", "static")}"}}'
     
-    # Add solver if specified
-    if 'solver' in fmu_config:
-        script += f',\n    solver="{fmu_config["solver"]}"'
+    # Note: solver parameter not supported in buildModelFMU
+    # OpenModelica uses CVODE by default (recommended)
+    # if 'solver' in fmu_config:
+    #     script += f',\n    solver="{fmu_config["solver"]}"'
     
     script += "\n);\n\n"
     script += "// Print any errors\n"
@@ -164,16 +166,45 @@ def main():
     print("\n[3/5] Generating OpenModelica script...")
     script_path = generate_build_script(config)
     
-    # 4. Build Docker Image (compiles FMU)
-    print("\n[4/5] Building Docker image (compiling FMU)...")
+    # 4. Build Docker Image (compiles FMU + runs validation)
+    print("\n[4/5] Building Docker image (compiling FMU + validation)...")
+    
+    # Check if test data exists
+    has_test_data = (TEST_DATA_DIR / "test_inputs.csv").exists()
+    if has_test_data:
+        print("  Test data found - validation will run in container")
+    else:
+        print("  No test data - skipping validation")
+    
     # Copy generated script to replace build.mos
     build_mos = BUILD_DIR / "build.mos"
     subprocess.run(f'copy "{script_path}" "{build_mos}"', shell=True, check=True)
     
-    run_command(f"docker build -f build/Dockerfile -t {IMAGE_NAME} .", cwd=PROJECT_ROOT)
+    # Copy validation script to tests folder (Docker will copy it)
+    # Docker build will:
+    # 1. Compile FMU
+    # 2. Install Python + fmpy
+    # 3. Run validation (if test data exists)
+    # 4. Exit with error if validation fails
+    
+    result = subprocess.run(f"docker build --no-cache -f build/Dockerfile -t {IMAGE_NAME} .", 
+                          shell=True, cwd=PROJECT_ROOT)
+    
+    if result.returncode != 0:
+        print("\nERROR: Docker build failed!")
+        if has_test_data:
+            print("This could be due to:")
+            print("  1. OpenModelica compilation error")
+            print("  2. FMU validation failed (outputs outside tolerance)")
+            print(f"\nCheck Docker build logs above for details.")
+        sys.exit(1)
+    
+    print("\n  Docker build successful!")
+    if has_test_data:
+        print("  FMU validated inside container - all tests passed!")
     
     # 5. Extract FMU
-    print("\n[5/5] Extracting FMU from image...")
+    print("\n[5/5] Extracting validated FMU from image...")
     subprocess.run(f"docker rm -f {CONTAINER_NAME}", shell=True, stderr=subprocess.DEVNULL)
     
     run_command(f"docker create --name {CONTAINER_NAME} {IMAGE_NAME}")
@@ -192,7 +223,14 @@ def main():
     log("BUILD SUCCESS")
     print(f"FMU Location: {dst_fmu}")
     print(f"FMU Size: {dst_fmu.stat().st_size / 1024:.1f} KB")
-    print(f"\nTo test: python tests/test_fmu.py")
+    
+    if has_test_data:
+        print(f"\nValidation: PASSED (tested inside Docker)")
+        print(f"  Tolerance: ±{config.get('validation', {}).get('tolerance_percent', 5.0)}%")
+    else:
+        print(f"\nNo validation performed (no test data provided)")
+    
+    print(f"\nFMU is ready for delivery!")
 
 if __name__ == "__main__":
     main()

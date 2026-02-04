@@ -1,0 +1,18 @@
+// Auto-generated build script from project.yaml
+// DO NOT EDIT MANUALLY - Edit project.yaml instead
+
+// Load main model file
+loadFile("BiomassBoiler.mo");
+getErrorString();
+
+// Build FMU
+buildModelFMU(
+    BiomassBoiler.DigitalTwin,
+    version="2.0",
+    fmuType="cs",
+    fileNamePrefix="DigitalTwin",
+    platforms={"static"}
+);
+
+// Print any errors
+getErrorString();

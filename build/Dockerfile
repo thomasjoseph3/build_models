@@ -1,23 +1,47 @@
-# Dockerfile for Building FMU from Modelica Source Code
-# Standard structure: input/src/ contains source, output/ contains generated FMU
-
+# Multi-stage Dockerfile: Build FMU + Validate in one container
+# Supports: .mo files, package directories, data files (.txt, .csv, .mat)
 FROM openmodelica/openmodelica:v1.24.0-minimal
 
+# Stage 1: Build FMU
 WORKDIR /build
 
-# Copy the build script and source files
-# Note: When using this template, client .mo files should be in ../input/src/
+# Copy build script
 COPY build/build.mos .
-COPY input/src/*.mo .
 
-# Run the build process and show output
+# Copy ALL files from input/src/ (preserves directory structure and data files)
+# This handles:
+# - Single .mo files
+# - Package directories (package.mo, SubModel.mo, package.order)
+# - Data files (.txt, .csv, .mat for CombiTimeTable, etc.)
+COPY input/src/ .
+
+# Compile FMU
 RUN omc build.mos > build_output.log 2>&1 || true
-
-# Show the build log
 RUN cat build_output.log
 
-# List the generated files to verify FMU was created
-RUN ls -lh
+# Verify FMU was created
+RUN ls -lh *.fmu || (echo "ERROR: FMU not created!" && exit 1)
 
-# The FMU will be created as DigitalTwin.fmu in the /build directory
-CMD ["sh", "-c", "if [ -f DigitalTwin.fmu ]; then ls -lh DigitalTwin.fmu; else echo 'FMU not generated. Check build_output.log'; cat build_output.log; fi"]
+# Stage 2: Install Python for validation
+RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
+RUN pip3 install fmpy pyyaml
+
+# Copy project config and validation script
+COPY input/project.yaml .
+COPY tests/validate_fmu_docker.py .
+
+# Create test_data directory and copy test files
+# Note: This will succeed silently if no test_data directory exists
+RUN mkdir -p test_data
+COPY input/test_data ./test_data
+
+# Stage 3: Run validation (if test data exists)
+RUN if [ -f test_data/test_inputs.csv ]; then \
+    echo "Running validation tests..." && \
+    python3 validate_fmu_docker.py || exit 1; \
+    else \
+    echo "No test data found - skipping validation"; \
+    fi
+
+# Final check
+RUN echo "Build and validation complete!" && ls -lh *.fmu

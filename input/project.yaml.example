@@ -1,0 +1,69 @@
+# FMU Project Configuration Template
+# Copy this to input/project.yaml and fill in your model details
+
+project:
+  name: "YourProject_Name"
+  description: "Brief description of the model"
+  client: "Client Name"
+  version: "1.0"
+
+modelica:
+  # REQUIRED: Full path to the model class to instantiate
+  model_class: "PackageName.ModelName"
+  
+  # REQUIRED: Modelica language version used (ask client!)
+  language_version: "3.2.3"  # Common: 3.2.3, 3.4, 4.0
+  
+  # Modelica Standard Library version
+  msl_version: "default"  # Or specific version like "3.2.3", "4.0.0"
+
+files:
+  # REQUIRED: Primary package file in input/src/
+  main: "MainFile.mo"
+  
+  # Optional: Additional dependency files
+  dependencies: []
+  #   - "SupportLib.mo"
+  #   - "Utilities.mo"
+
+# External libraries (beyond MSL)
+external_libraries: []
+#   - name: "ThermoPower"
+#     version: "3.1"
+#     path: "lib/ThermoPower/package.mo"  # Relative to input/
+#   - name: "CustomLib"
+#     version: "1.0"
+#     path: "lib/CustomLib/package.mo"
+
+fmu:
+  # FMU type: "cs" (co-simulation) or "me" (model-exchange)
+  type: "cs"
+  
+  # FMI version
+  version: "2.0"
+  
+  # Target platform: "static" (portable), "linux64", "win64"
+  platform: "static"
+  
+  # Output filename (without .fmu extension)
+  output_name: "YourFMU"
+  
+  # Optional: Solver configuration
+  solver: "cvode"      # cvode (recommended), euler, ida, dassl, rungekutta
+  tolerance: 1e-6      # Solver tolerance (lower = more accurate, slower)
+
+# Interface specification - for testing and documentation
+# This section helps automate testing and documents the model I/O
+interface:
+  inputs:
+    - name: "inputVariableName"
+      description: "What this input controls"
+      unit: "unit"
+      default: 0.0
+      range: [min, max]  # Optional: valid range
+  
+  outputs:
+    - name: "outputName"
+      description: "What this output represents"
+      unit: "unit"
+      fmu_variable: "actual.fmu.variable.path"  # Maps to FMU internal variable

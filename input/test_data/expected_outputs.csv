@@ -1,0 +1,4 @@
+time,out_MW_gross,out_Efficiency,out_FurnaceTemp,out_O2
+0,58.5,82.0,1150,4.5
+60,78.0,83.5,1200,4.2
+120,97.5,84.0,1250,4.0

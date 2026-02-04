@@ -17,7 +17,7 @@ modelica:
   msl_version: "default"      # Modelica Standard Library version
 
 files:
-  main: "BiomassBoiler.mo"
+  main: "model/BiomassBoiler.mo"
   dependencies: []
 
 external_libraries: []

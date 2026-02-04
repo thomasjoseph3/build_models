@@ -13,7 +13,12 @@ COPY build/build.mos .
 # - Single .mo files
 # - Package directories (package.mo, SubModel.mo, package.order)
 # - Data files (.txt, .csv, .mat for CombiTimeTable, etc.)
-COPY input/src/ .
+# Copy ALL files from input/src/ to /build/input/src/
+# This aligns with the new standard structure:
+# input/src/model/      -> /build/input/src/model/
+# input/src/libraries/  -> /build/input/src/libraries/
+# input/src/data/       -> /build/input/src/data/
+COPY input/src/ input/src/
 
 # Compile FMU
 RUN omc build.mos > build_output.log 2>&1 || true

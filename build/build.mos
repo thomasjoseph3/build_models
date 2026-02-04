@@ -2,7 +2,7 @@
 // DO NOT EDIT MANUALLY - Edit project.yaml instead
 
 // Load main model file
-loadFile("BiomassBoiler.mo");
+loadFile("input/src/model/BiomassBoiler.mo");
 getErrorString();
 
 // Build FMU

@@ -13,3 +13,4 @@ Keep:
 Generated files (don't commit to Git):
 - build/generated_build.mos (auto-created)
 - output/*.fmu (build artifacts)
+__pycache__/

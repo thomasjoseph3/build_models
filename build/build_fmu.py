@@ -63,6 +63,11 @@ def load_config():
 def validate_files(config):
     """Check that all referenced files exist"""
     src_dir = INPUT_DIR / "src"
+    # Support both old flat structure and new model/ structure
+    if (src_dir / "model").exists():
+        fallback_dir = src_dir / "model"
+    else:
+        fallback_dir = src_dir
     
     # Check main file
     main_file = src_dir / config['files']['main']
@@ -100,21 +105,21 @@ def generate_build_script(config):
     script = "// Auto-generated build script from project.yaml\n"
     script += "// DO NOT EDIT MANUALLY - Edit project.yaml instead\n\n"
     
-    # Load external libraries first
+    # Load external libraries first (from input/src/libraries/)
     for lib in ext_libs:
-        lib_path = f"/input/{lib['path']}"
+        lib_path = f"input/src/libraries/{lib['path']}"
         script += f'// Load external library: {lib["name"]}\n'
         script += f'loadFile("{lib_path}");\n'
         script += 'getErrorString();\n\n'
     
-    # Load main file
+    # Load main file (from input/src/model/)
     script += f"// Load main model file\n"
-    script += f'loadFile("{main_file}");\n'
+    script += f'loadFile("input/src/{main_file}");\n'
     script += "getErrorString();\n\n"
     
-    # Load dependencies
+    # Load dependencies (from input/src/model/)
     for dep in dependencies:
-        script += f'loadFile("{dep}");\n'
+        script += f'loadFile("input/src/{dep}");\n'
         script += 'getErrorString();\n'
     
     if dependencies:
@@ -127,14 +132,14 @@ def generate_build_script(config):
     script += f'    version="{fmu_config.get("version", "2.0")}",\n'
     script += f'    fmuType="{fmu_config.get("type", "cs")}",\n'
     script += f'    fileNamePrefix="{fmu_config.get("output_name", "DigitalTwin")}",\n'
-    script += f'    platforms={{"{fmu_config.get("platform", "static")}"}}'
+    script += f'    platforms={{"{fmu_config.get("platform", "static")}"}}\n'
     
     # Note: solver parameter not supported in buildModelFMU
     # OpenModelica uses CVODE by default (recommended)
     # if 'solver' in fmu_config:
     #     script += f',\n    solver="{fmu_config["solver"]}"'
     
-    script += "\n);\n\n"
+    script += ");\n\n"
     script += "// Print any errors\n"
     script += "getErrorString();\n"
     
@@ -169,6 +174,21 @@ def main():
     # 4. Build Docker Image (compiles FMU + runs validation)
     print("\n[4/5] Building Docker image (compiling FMU + validation)...")
     
+    # Check for client validation CSV and auto-split
+    client_csv = TEST_DATA_DIR / "client_validation.csv"
+    if client_csv.exists():
+        print(f"  Found client validation CSV: {client_csv.name}")
+        print("  Auto-generating test inputs and expected outputs...")
+        
+        # Import split function dynamically to avoid circular imports or path issues
+        sys.path.append(str(BUILD_DIR))
+        from split_validation_csv import split_validation_csv
+        try:
+            split_validation_csv(client_csv.name, config)
+        except Exception as e:
+            print(f"  Warning: Failed to split CSV: {e}")
+            print("  Validation might fail if test_inputs.csv is missing.")
+            
     # Check if test data exists
     has_test_data = (TEST_DATA_DIR / "test_inputs.csv").exists()
     if has_test_data:

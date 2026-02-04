@@ -1,1 +1,24 @@
-__pycache__\
+__pycache__/
+*.pyc
+*.pyo
+
+# Client Data (NEVER COMMIT)
+input/src/
+input/test_data/
+input/project.yaml
+
+# Build Artifacts
+output/
+build/generated_build.mos
+
+# Docker
+.docker/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

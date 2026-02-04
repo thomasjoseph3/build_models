@@ -35,6 +35,8 @@ Please send us the following files in a **ZIP archive**:
 - [ ] **Modelica files** (`.mo`)
   - Single file OR
   - Package directory structure (with `package.mo`, `package.order`)
+  - *Note: If your model depends on other separate .mo files, please include them all and list the load order.*
+  - *Example: `import Modelica.Fluid.Pipes.StaticPipe;`*
   
 ### Optional but Recommended:
 - [ ] **Data files** (if model uses external data):

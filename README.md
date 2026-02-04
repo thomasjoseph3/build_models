@@ -7,7 +7,7 @@
 1. Place client files in `input/src/`
 2. Place validation CSV in `input/test_data/`
 3. Run: `python build/split_validation_csv.py client_validation.csv`
-4. Run: `python build/build_fmu.py`
+4. Run: `.\twinctl build`
 5. Get validated FMU from `output/`
 
 ## 📁 Folder Structure
@@ -104,7 +104,7 @@ files:
 ### Step 5: Build + Validate (One Command!)
 
 ```bash
-python build/build_fmu.py
+.\twinctl build
 ```
 
 **What happens (all in Docker):**
@@ -203,7 +203,7 @@ For each client:
 - [ ] Place validation CSV in `input/test_data/`
 - [ ] Split CSV: `python build/split_validation_csv.py client_validation.csv`
 - [ ] Create `input/project.yaml`
-- [ ] Build + Validate: `python build/build_fmu.py`
+- [ ] Build + Validate: `.\twinctl build`
 - [ ] Verify PASS status
 - [ ] Deliver FMU
 

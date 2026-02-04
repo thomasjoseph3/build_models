@@ -1,13 +1,14 @@
 # Dockerfile for Building FMU from Modelica Source Code
-# Standard structure: src/ contains source, output/ contains generated FMU
+# Standard structure: input/src/ contains source, output/ contains generated FMU
 
 FROM openmodelica/openmodelica:v1.24.0-minimal
 
 WORKDIR /build
 
-# Copy the Modelica source file and build script
-COPY ../src/BiomassBoiler.mo .
-COPY build.mos .
+# Copy the build script and source files
+# Note: When using this template, client .mo files should be in ../input/src/
+COPY build/build.mos .
+COPY input/src/*.mo .
 
 # Run the build process and show output
 RUN omc build.mos > build_output.log 2>&1 || true

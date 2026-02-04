@@ -1,0 +1,62 @@
+# FMU Project Configuration
+# Copy this to project.yaml and fill in your model details
+
+project:
+  name: "BiomassBoiler_DigitalTwin"
+  description: "Biomass boiler physics model for digital twin simulation"
+
+modelica:
+  # Main model class to instantiate (full path)
+  model_class: "BiomassBoiler.DigitalTwin"
+  
+  # Modelica language version (optional, defaults to latest)
+  language_version: "3.2.3"
+  
+  # Modelica Standard Library version (optional)
+  msl_version: "default"
+
+files:
+  # Primary package file in input/src/
+  main: "BiomassBoiler.mo"
+  
+  # Additional dependency files (optional)
+  dependencies: []
+  #   - "SupportLib.mo"
+  #   - "Utilities.mo"
+
+# External libraries (optional)
+external_libraries: []
+#   - name: "ThermoPower"
+#     version: "3.1"
+#     path: "lib/ThermoPower/package.mo"
+
+fmu:
+  # FMU type: "cs" (co-simulation) or "me" (model-exchange)
+  type: "cs"
+  
+  # FMI version
+  version: "2.0"
+  
+  # Target platform: "static", "linux64", "win64"
+  platform: "static"
+  
+  # Output filename (without .fmu extension)
+  output_name: "DigitalTwin"
+  
+  # Solver (optional): "cvode", "euler", etc.
+  # solver: "cvode"
+
+# Interface specification (for documentation/validation)
+interface:
+  inputs:
+    - name: "feedRate"
+      description: "Biomass feed rate"
+      unit: "kg/s"
+  
+  outputs:
+    - name: "powerOutput"
+      description: "Gross power output"
+      unit: "MW"
+    - name: "efficiency"
+      description: "Thermal efficiency"
+      unit: "%"

@@ -3,9 +3,7 @@ __pycache__/
 *.pyo
 
 # Client Data (NEVER COMMIT)
-input/src/
-input/test_data/
-input/project.yaml
+
 
 # Build Artifacts
 output/

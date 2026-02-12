@@ -1,16 +1,21 @@
 // Auto-generated build script from project.yaml
-// DO NOT EDIT MANUALLY - Edit project.yaml instead
+// Load Modelica Standard Library v4.0.0
+installPackage(Modelica, "4.0.0");
+getErrorString();
+
+installPackage(Complex, "4.0.0");
+getErrorString();
 
 // Load main model file
-loadFile("input/src/model/BiomassBoiler.mo");
+loadFile("input/src/model/ThermofluidStream/package.mo");
 getErrorString();
 
 // Build FMU
 buildModelFMU(
-    BiomassBoiler.DigitalTwin,
+    ThermofluidStream.HeatExchangers.Tests.ShellAndTubeNTU,
     version="2.0",
     fmuType="cs",
-    fileNamePrefix="DigitalTwin",
+    fileNamePrefix="ShellAndTubeNTU",
     platforms={"static"}
 );
 

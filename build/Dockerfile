@@ -8,17 +8,16 @@ WORKDIR /build
 # Copy build script
 COPY build/build.mos .
 
-# Copy ALL files from input/src/ (preserves directory structure and data files)
+# Copy ALL files from the active model's src/
 # This handles:
 # - Single .mo files
 # - Package directories (package.mo, SubModel.mo, package.order)
 # - Data files (.txt, .csv, .mat for CombiTimeTable, etc.)
-# Copy ALL files from input/src/ to /build/input/src/
-# This aligns with the new standard structure:
-# input/src/model/      -> /build/input/src/model/
-# input/src/libraries/  -> /build/input/src/libraries/
-# input/src/data/       -> /build/input/src/data/
-COPY input/src/ input/src/
+# Preserves directory structure:
+# input/_active/src/model/      -> /build/input/src/model/
+# input/_active/src/libraries/  -> /build/input/src/libraries/
+# input/_active/src/data/       -> /build/input/src/data/
+COPY input/_active/src/ input/src/
 
 # Compile FMU
 RUN omc build.mos > build_output.log 2>&1 || true
@@ -28,24 +27,25 @@ RUN cat build_output.log
 RUN ls -lh *.fmu || (echo "ERROR: FMU not created!" && exit 1)
 
 # Stage 2: Install Python for validation
-RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
-RUN pip3 install fmpy pyyaml
-
+# Stage 2: Validation (Conditional)
 # Copy project config and validation script
-COPY input/project.yaml .
+COPY input/_active/project.yaml .
 COPY tests/validate_fmu_docker.py .
 
 # Create test_data directory and copy test files
-# Note: This will succeed silently if no test_data directory exists
 RUN mkdir -p test_data
-COPY input/test_data ./test_data
+COPY input/_active/test_data ./test_data
 
-# Stage 3: Run validation (if test data exists)
+# Run validation ONLY if test data exists
+# This avoids installing heavy python deps if not needed
 RUN if [ -f test_data/test_inputs.csv ]; then \
+    echo "Test data found - Installing dependencies..." && \
+    apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/* && \
+    pip3 install "numpy<2" fmpy pyyaml && \
     echo "Running validation tests..." && \
     python3 validate_fmu_docker.py || exit 1; \
     else \
-    echo "No test data found - skipping validation"; \
+    echo "No test data found - skipping validation and python install"; \
     fi
 
 # Final check

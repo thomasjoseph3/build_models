@@ -1,0 +1,17 @@
+ShellAndTubeNTU
+RegenerativeHEX
+Recuperator
+RealisticWaterCooler
+PlateHeatExchanger
+FlowRes
+Evaporator
+ElementTwoPhase
+DoublePipe
+CrossFlowNTU_zeroMassFlow
+CrossFlowNTU
+CounterFlowNTU_zeroMassFlow
+CounterFlowNTU_serial
+CounterFlowNTU_parallel
+CounterFlowNTU
+Condenser
+AirCooledCondenser

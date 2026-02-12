@@ -1,0 +1,182 @@
+# FMU Project Configuration
+# Use this file with the FMU build template
+
+project:
+  name: "BiomassBoiler_DigitalTwin"
+  description: "Biomass boiler physics model for digital twin simulation"
+  client: "Internal Testing"
+  version: "1.0"
+
+fmu:
+  type: "cs"
+  version: "2.0"
+  platform: "static"
+  output_name: "DigitalTwin"
+  solver: "cvode"
+  tolerance: 1e-6
+
+modelica:
+  model_class: "BiomassBoiler.DigitalTwin"
+  language_version: "3.2.3"
+  msl_version: "default"
+
+files:
+  # The main file to load.
+  # - For a single file: "model/MyModel.mo"
+  # - For a package: "model/MyPackage/package.mo" (folder must be in input/src/model/)
+  main: "model/BiomassBoiler.mo"
+  
+  dependencies: []
+
+external_libraries: []
+
+validation:
+  # Tolerance for output comparison (±%)
+  tolerance_percent: 5.0
+  # Validation data must be named 'validation.csv' in input/test_data/
+
+interface:
+  inputs:
+    - name: "feeder1_flow"
+      description: "Mill 1 feeder flow rate"
+      unit: "kg/s"
+      default: 5.0
+      range: [0, 10]
+    
+    - name: "feeder2_flow"
+      description: "Mill 2 feeder flow rate"
+      unit: "kg/s"
+      default: 5.0
+      range: [0, 10]
+    
+    - name: "feeder3_flow"
+      description: "Mill 3 feeder flow rate"
+      unit: "kg/s"
+      default: 5.0
+      range: [0, 10]
+    
+    - name: "feeder4_flow"
+      description: "Mill 4 feeder flow rate"
+      unit: "kg/s"
+      default: 0.0
+      range: [0, 10]
+    
+    - name: "feeder5_flow"
+      description: "Mill 5 feeder flow rate"
+      unit: "kg/s"
+      default: 0.0
+      range: [0, 10]
+    
+    - name: "fuel_moisture"
+      description: "Fuel moisture content"
+      unit: "%"
+      default: 40.0
+      range: [20, 60]
+    
+    - name: "fuel_LHV"
+      description: "Fuel lower heating value"
+      unit: "MJ/kg"
+      default: 17.5
+      range: [12, 22]
+    
+    - name: "primaryAir_flow"
+      description: "Primary air flow rate"
+      unit: "kg/s"
+      default: 55.0
+      range: [30, 100]
+    
+    - name: "primaryAir_temp"
+      description: "Primary air temperature"
+      unit: "°C"
+      default: 25.0
+      range: [15, 350]
+    
+    - name: "secondaryAir_flow"
+      description: "Secondary air flow rate"
+      unit: "kg/s"
+      default: 45.0
+      range: [20, 80]
+    
+    - name: "overfireAir_flow"
+      description: "Overfire air flow rate"
+      unit: "kg/s"
+      default: 10.0
+      range: [0, 30]
+    
+    - name: "fgr_percent"
+      description: "Flue gas recirculation percentage"
+      unit: "%"
+      default: 8.0
+      range: [0, 20]
+    
+    - name: "target_MW"
+      description: "Target power output"
+      unit: "MW"
+      default: 80.0
+      range: [40, 120]
+  
+  outputs:
+    - name: "out_MW_gross"
+      description: "Gross power output"
+      unit: "MW"
+      fmu_variable: "turbine.powerOutputMW"
+    
+    - name: "out_Efficiency"
+      description: "Thermal efficiency"
+      unit: "%"
+      fmu_variable: "boiler.efficiencyPercent"
+    
+    - name: "out_FurnaceTemp"
+      description: "Furnace exit gas temperature"
+      unit: "°C"
+      fmu_variable: "furnace.exitGasTemperatureC"
+    
+    - name: "out_O2"
+      description: "Flue gas oxygen"
+      unit: "%"
+      fmu_variable: "flueGas.o2Percent"
+    
+    - name: "out_CO"
+      description: "Carbon monoxide emissions"
+      unit: "ppm"
+      fmu_variable: "flueGas.coPpm"
+    
+    - name: "out_NOx"
+      description: "Nitrogen oxide emissions"
+      unit: "mg/Nm³"
+      fmu_variable: "flueGas.noxMgPerNm3"
+    
+    - name: "out_SteamPressure"
+      description: "Steam pressure"
+      unit: "bar"
+      fmu_variable: "steam.pressureBar"
+    
+    - name: "out_SteamTemperature"
+      description: "Steam temperature"
+      unit: "°C"
+      fmu_variable: "steam.temperatureC"
+    
+    - name: "mill1_power"
+      description: "Mill 1 motor power"
+      unit: "kW"
+      fmu_variable: "mill1.motorPowerKw"
+    
+    - name: "mill2_power"
+      description: "Mill 2 motor power"
+      unit: "kW"
+      fmu_variable: "mill2.motorPowerKw"
+    
+    - name: "mill3_power"
+      description: "Mill 3 motor power"
+      unit: "kW"
+      fmu_variable: "mill3.motorPowerKw"
+    
+    - name: "mill4_power"
+      description: "Mill 4 motor power"
+      unit: "kW"
+      fmu_variable: "mill4.motorPowerKw"
+    
+    - name: "mill5_power"
+      description: "Mill 5 motor power"
+      unit: "kW"
+      fmu_variable: "mill5.motorPowerKw"

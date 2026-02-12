@@ -1,0 +1,97 @@
+# FMU Project Configuration
+# Use this file with the FMU build template
+
+project:
+  name: "ShellAndTubeNTU_Model"
+  description: "Shell and Tube Heat Exchanger (Glycol/Water) FMU model"
+  client: "Internal"
+  version: "1.0"
+
+modelica:
+  # The full Modelica path to the model we want to simulate
+  model_class: "ThermofluidStream.HeatExchangers.Tests.ShellAndTubeNTU"
+  
+  # Modelica language version (from ThermofluidStream/package.mo)
+  language_version: "4.0.0"
+  
+  # Uses standard library 4.0.0
+  msl_version: "4.0.0"
+
+files:
+  # The main file to load. 
+  # - For a single file: "model/MyModel.mo"
+  # - For a package: "model/MyPackage/package.mo" (folder must be in input/src/model/)
+  main: "model/ThermofluidStream/package.mo"
+  
+  dependencies: []
+
+# No external libraries beyond MSL (ThermofluidStream is the main package)
+external_libraries: []
+
+fmu:
+  type: "cs"                # Co-Simulation
+  version: "2.0"            # FMI 2.0
+  platform: "static"        # Portable (embedded sources/binaries) or linux64
+  output_name: "ShellAndTubeNTU"
+  solver: "cvode"
+  tolerance: 1e-6
+
+validation:
+  # Tolerance for output comparison (±%)
+  tolerance_percent: 5.0
+  
+# Interface Definition
+
+
+# Interface Definition
+interface:
+  inputs:
+    - name: "T_glycol_in"
+      description: "Hot Glycol Inlet Temperature"
+      unit: "degC"
+      default: 80.0
+      range: [0.0, 150.0]
+      
+    - name: "T_water_in"
+      description: "Cold Water Inlet Temperature"
+      unit: "degC"
+      default: 20.0
+      range: [0.0, 100.0]
+      
+    - name: "m_flow_glycol"
+      description: "Hot Glycol Mass Flow Rate"
+      unit: "kg/s"
+      default: 1.0
+      range: [0.1, 10.0]
+
+    - name: "m_flow_water"
+      description: "Cold Water Mass Flow Rate"
+      unit: "kg/s"
+      default: 2.0
+      range: [0.1, 10.0]
+  
+  outputs:
+    - name: "T_glycol_out"
+      description: "Hot Glycol Outlet Temperature"
+      unit: "degC"
+      fmu_variable: "T_glycol_out"
+      
+    - name: "T_water_out"
+      description: "Cold Water Outlet Temperature"
+      unit: "degC"
+      fmu_variable: "T_water_out"
+      
+    - name: "Q_flow"
+      description: "Heat Transfer Rate"
+      unit: "W"
+      fmu_variable: "Q_flow"
+      
+    - name: "effectiveness"
+      description: "Heat Exchanger Effectiveness (ε)"
+      unit: "1"
+      fmu_variable: "effectiveness"
+
+    - name: "NTU_value"
+      description: "Number of Transfer Units (NTU)"
+      unit: "1"
+      fmu_variable: "NTU_value"

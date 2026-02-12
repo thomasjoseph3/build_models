@@ -6,6 +6,7 @@ Reads project.yaml and generates FMU automatically
 import os
 import sys
 import subprocess
+import shutil
 import yaml
 from pathlib import Path
 
@@ -13,11 +14,11 @@ from pathlib import Path
 IMAGE_NAME = "fmu-builder"
 CONTAINER_NAME = "temp-fmu-builder"
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
-INPUT_DIR = PROJECT_ROOT / "input"
+INPUT_DIR = PROJECT_ROOT / "input" / "_active"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 BUILD_DIR = PROJECT_ROOT / "build"
-TEST_DATA_DIR = PROJECT_ROOT / "input" / "test_data"
-CONFIG_FILE = PROJECT_ROOT / "input" / "project.yaml"
+TEST_DATA_DIR = PROJECT_ROOT / "input" / "_active" / "test_data"
+CONFIG_FILE = PROJECT_ROOT / "input" / "_active" / "project.yaml"
 
 def log(msg):
     """Print with visual separator"""
@@ -85,7 +86,8 @@ def validate_files(config):
     # Check external libraries
     for lib in config.get('external_libraries', []):
         if 'path' in lib:
-            lib_path = INPUT_DIR / lib['path']
+            # Libraries are expected to be in src/libraries/
+            lib_path = src_dir / "libraries" / lib['path']
             if not lib_path.exists():
                 print(f"Error: External library not found: {lib_path}")
                 sys.exit(1)
@@ -103,7 +105,16 @@ def generate_build_script(config):
     
     # Build the OpenModelica script
     script = "// Auto-generated build script from project.yaml\n"
-    script += "// DO NOT EDIT MANUALLY - Edit project.yaml instead\n\n"
+    # Load MSL if specified
+    msl_version = config['modelica'].get('msl_version', 'default')
+    if msl_version != 'default':
+        script += f'// Load Modelica Standard Library v{msl_version}\n'
+        script += f'installPackage(Modelica, "{msl_version}");\n'
+        script += "getErrorString();\n\n"
+        # Also load Complex if needed (often needed with MSL 4.0)
+        if msl_version.startswith("4."):
+            script += f'installPackage(Complex, "{msl_version}");\n'
+            script += "getErrorString();\n\n"
     
     # Load external libraries first (from input/src/libraries/)
     for lib in ext_libs:
@@ -175,7 +186,11 @@ def main():
     print("\n[4/5] Building Docker image (compiling FMU + validation)...")
     
     # Check for client validation CSV and auto-split
-    client_csv = TEST_DATA_DIR / "client_validation.csv"
+    # Check for client validation CSV and auto-split
+    validation_config = config.get('validation', {})
+    csv_filename = validation_config.get('csv_file', 'validation.csv')
+    client_csv = TEST_DATA_DIR / csv_filename
+    
     if client_csv.exists():
         print(f"  Found client validation CSV: {client_csv.name}")
         print("  Auto-generating test inputs and expected outputs...")
@@ -198,7 +213,7 @@ def main():
     
     # Copy generated script to replace build.mos
     build_mos = BUILD_DIR / "build.mos"
-    subprocess.run(f'copy "{script_path}" "{build_mos}"', shell=True, check=True)
+    shutil.copy(str(script_path), str(build_mos))
     
     # Copy validation script to tests folder (Docker will copy it)
     # Docker build will:
@@ -207,10 +222,11 @@ def main():
     # 3. Run validation (if test data exists)
     # 4. Exit with error if validation fails
     
-    result = subprocess.run(f"docker build --no-cache -f build/Dockerfile -t {IMAGE_NAME} .", 
+    # Use call instead of run to stream output directly to stdout
+    result_code = subprocess.call(f"docker build --no-cache -f build/Dockerfile -t {IMAGE_NAME} .", 
                           shell=True, cwd=PROJECT_ROOT)
     
-    if result.returncode != 0:
+    if result_code != 0:
         print("\nERROR: Docker build failed!")
         if has_test_data:
             print("This could be due to:")

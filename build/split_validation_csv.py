@@ -11,8 +11,8 @@ import sys
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
-CONFIG_FILE = PROJECT_ROOT / "input" / "project.yaml"
-TEST_DATA_DIR = PROJECT_ROOT / "input" / "test_data"
+CONFIG_FILE = PROJECT_ROOT / "input" / "_active" / "project.yaml"
+TEST_DATA_DIR = PROJECT_ROOT / "input" / "_active" / "test_data"
 
 def load_config():
     """Load project configuration"""
@@ -70,27 +70,45 @@ def split_validation_csv(validation_file, config):
     if missing_outputs:
         print(f"\nWarning: Missing output columns: {missing_outputs}")
     
+    # helper to find time column (case insensitive)
+    time_col = next((c for c in csv_columns if c.lower() == 'time'), None)
+    if not time_col:
+        print("Error: 'time' column not found in CSV!")
+        sys.exit(1)
+
+    
     # Split into input and output CSVs
     input_csv_path = TEST_DATA_DIR / "test_inputs.csv"
     output_csv_path = TEST_DATA_DIR / "expected_outputs.csv"
     
     # Write test_inputs.csv
-    input_cols = ['time'] + [name for name in input_names if name in csv_columns]
+    input_vars = [name for name in input_names if name in csv_columns]
+    input_cols = ['time'] + input_vars
+    
     with open(input_csv_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=input_cols)
         writer.writeheader()
         for row in all_rows:
-            input_row = {col: row.get(col, '') for col in input_cols}
-            writer.writerow(input_row)
+            # Map robust time column to standard 'time' key
+            out_row = {'time': row.get(time_col, '')}
+            # Copy other existing columns
+            for col in input_vars:
+                out_row[col] = row.get(col, '')
+            writer.writerow(out_row)
     
     # Write expected_outputs.csv
-    output_cols = ['time'] + [name for name in output_names if name in csv_columns]
+    output_vars = [name for name in output_names if name in csv_columns]
+    output_cols = ['time'] + output_vars
+    
     with open(output_csv_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=output_cols)
         writer.writeheader()
         for row in all_rows:
-            output_row = {col: row.get(col, '') for col in output_cols}
-            writer.writerow(output_row)
+            # Map robust time column to standard 'time' key
+            out_row = {'time': row.get(time_col, '')}
+            for col in output_vars:
+                out_row[col] = row.get(col, '')
+            writer.writerow(out_row)
     
     print(f"\nSplit complete!")
     print(f"  Created: {input_csv_path.name} ({len(input_cols)} columns)")

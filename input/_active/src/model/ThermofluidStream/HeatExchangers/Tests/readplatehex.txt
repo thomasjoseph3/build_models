@@ -1,0 +1,44 @@
+Modeling Plate Heat Exchangers (PHE) in ThermofluidStream
+===========================================================
+
+1. Concept and Physics
+----------------------
+A standard single-pass Plate Heat Exchanger (PHE) operates with two fluids flowing 
+in opposite directions across the plates. This arrangement maximizes the temperature 
+difference between the fluids and is physically defined as "Counter-Flow".
+
+Therefore, the `ThermofluidStream.HeatExchangers.CounterFlowNTU` model is the 
+correct mathematical representation for a PHE.
+
+The Effectiveness-NTU relation used in `CounterFlowNTU.mo` is:
+   effectiveness = (1 - exp(-NTU*(1 - C_r))) / (1 - C_r*exp(-NTU*(1 - C_r)))
+   
+This is the exact analytical solution for any counter-current heat exchanger, 
+whether it is a plate, tube-in-tube, or other geometry.
+
+2. How to Use
+-------------
+To model a Plate Heat Exchanger:
+1. Instantiate `ThermofluidStream.HeatExchangers.CounterFlowNTU`.
+2. Set the `A` parameter to the total heat transfer area of the plate pack.
+3. Set the `k_NTU` parameter to the overall heat transfer coefficient (U-value).
+
+   Note: Plate heat exchangers have high U-values compared to shell-and-tube.
+   Typical values for Water-Water PHE: 3000 - 7000 W/(m2*K).
+
+3. When is a New Model Needed?
+------------------------------
+You do NOT need a new model for standard applications. 
+You ONLY need to create a custom model (e.g. extending PartialNTU) if:
+
+A. Multi-Pass Arrangement:
+   If the PHE has a complex pass structure (e.g. 2-pass or 3-pass) where fluids 
+   turn around and flow parallel in some sections, the standard Counter-Flow 
+   equation is no longer 100% accurate. You would need a correction factor or 
+   a specific Multi-Pass NTU correlation.
+
+B. Variable Heat Transfer Coefficient:
+   The `CounterFlowNTU` model assumes a constant U-value (`k_NTU`). 
+   If high-fidelity simulation of partial loads is required, where U varies 
+   significantly with mass flow (Re number), you should extend the model and 
+   replace the `k_NTU` parameter with an equation (e.g. Wilson plot correlation).

@@ -1,5 +1,5 @@
 # FMU Project Configuration
-# Use this file with the FMU build template
+# Auto-generated based on projectv1.yaml and source inspection
 
 project:
   name: "ShellAndTubeNTU_Model"
@@ -7,43 +7,31 @@ project:
   client: "Internal"
   version: "1.0"
 
-modelica:
-  # The full Modelica path to the model we want to simulate
-  model_class: "ThermofluidStream.HeatExchangers.Tests.ShellAndTubeNTU"
-  
-  # Modelica language version (from ThermofluidStream/package.mo)
-  language_version: "4.0.0"
-  
-  # Uses standard library 4.0.0
-  msl_version: "4.0.0"
-
-files:
-  # The main file to load. 
-  # - For a single file: "model/MyModel.mo"
-  # - For a package: "model/MyPackage/package.mo" (folder must be in input/src/model/)
-  main: "model/ThermofluidStream/package.mo"
-  
-  dependencies: []
-
-# No external libraries beyond MSL (ThermofluidStream is the main package)
-external_libraries: []
-
 fmu:
-  type: "cs"                # Co-Simulation
-  version: "2.0"            # FMI 2.0
-  platform: "static"        # Portable (embedded sources/binaries) or linux64
+  type: "cs"
+  version: "2.0"
+  platform: "static"
   output_name: "ShellAndTubeNTU"
   solver: "cvode"
   tolerance: 1e-6
 
-validation:
-  # Tolerance for output comparison (±%)
-  tolerance_percent: 5.0
+modelica:
+  # Updated based on package.mo inspection
+  model_class: "ThermofluidStream_v2.HeatExchangers.Tests.ShellAndTubeNTU"
+  language_version: "4.0.0"
+  msl_version: "4.0.0"
+
+files:
+  # Updated to point to v2 package
+  main: "model/ThermofluidStream_v2/package.mo"
   
-# Interface Definition
+  dependencies: []
 
+external_libraries: []
 
-# Interface Definition
+validation:
+  tolerance_percent: 5.0
+
 interface:
   inputs:
     - name: "T_glycol_in"

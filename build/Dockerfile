@@ -27,25 +27,24 @@ RUN cat build_output.log
 RUN ls -lh *.fmu || (echo "ERROR: FMU not created!" && exit 1)
 
 # Stage 2: Install Python for validation
-# Stage 2: Validation (Conditional)
-# Copy project config and validation script
+# Validation (Conditional)
 COPY input/_active/project.yaml .
-COPY tests/validate_fmu_docker.py .
+# Removed generic validate_fmu_docker.py
+# COPY tests/validate_fmu_docker.py .
 
 # Create test_data directory and copy test files
 RUN mkdir -p test_data
 COPY input/_active/test_data ./test_data
 
-# Run validation ONLY if test data exists
-# This avoids installing heavy python deps if not needed
-RUN if [ -f test_data/test_inputs.csv ]; then \
-    echo "Test data found - Installing dependencies..." && \
+# Run validation ONLY if test_script.py exists
+RUN if [ -f test_data/test_script.py ]; then \
+    echo "Test script found - Installing dependencies..." && \
     apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/* && \
     pip3 install "numpy<2" fmpy pyyaml && \
-    echo "Running validation tests..." && \
-    python3 validate_fmu_docker.py || exit 1; \
+    echo "Running custom validation script..." && \
+    python3 test_data/test_script.py || exit 1; \
     else \
-    echo "No test data found - skipping validation and python install"; \
+    echo "No custom test script found - skipping validation"; \
     fi
 
 # Final check

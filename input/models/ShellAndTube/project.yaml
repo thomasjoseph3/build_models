@@ -1,5 +1,5 @@
 # FMU Project Configuration
-# Use this file with the FMU build template
+# Auto-generated based on projectv1.yaml and source inspection
 
 project:
   name: "ShellAndTubeNTU_Model"
@@ -16,26 +16,21 @@ fmu:
   tolerance: 1e-6
 
 modelica:
-  model_class: "ThermofluidStream.HeatExchangers.Tests.ShellAndTubeNTU"
+  # Updated based on package.mo inspection
+  model_class: "ThermofluidStream_v2.HeatExchangers.Tests.ShellAndTubeNTU"
   language_version: "4.0.0"
-  # Uses standard library 4.0.0
   msl_version: "4.0.0"
 
 files:
-  # The main file to load.
-  # - For a single file: "model/MyModel.mo"
-  # - For a package: "model/MyPackage/package.mo" (folder must be in input/src/model/)
-  main: "model/ThermofluidStream/package.mo"
+  # Updated to point to v2 package
+  main: "model/ThermofluidStream_v2/package.mo"
   
   dependencies: []
 
 external_libraries: []
-  # No external libraries beyond MSL (ThermofluidStream is the main package)
 
 validation:
-  # Tolerance for output comparison (±%)
   tolerance_percent: 5.0
-  # Validation data must be named 'validation.csv' in input/test_data/
 
 interface:
   inputs:

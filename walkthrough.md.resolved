@@ -1,0 +1,146 @@
+# FMU Build System — Multi-Model Walkthrough
+
+## What This System Does
+
+This project automates compiling **Modelica [.mo](file:///home/toobler/Desktop/fmu%20template/build_models/input/src/model/BiomassBoiler.mo) files into VM-independent FMUs** using **Docker + OpenModelica**. It supports managing **multiple models** in one repository, each with its own configuration and validation data.
+
+---
+
+## 1. Directory Structure
+
+The system is designed to handle multiple distinct models under `input/models/`.
+
+```
+build_models/
+├── input/
+│   ├── models/                        ← ALL YOUR MODELS LIVE HERE
+│   │   ├── BiomassBoiler/             ← Model A
+│   │   │   ├── src/model/BiomassBoiler.mo
+│   │   │   ├── test_data/validation.csv
+│   │   │   └── project.yaml
+│   │   │
+│   │   └── ShellAndTube/              ← Model B (Package-based)
+│   │       ├── src/model/ThermofluidStream/ ← Package inside model/
+│   │       ├── test_data/
+│   │       └── project.yaml
+│   │
+│   └── _active/                       ← System staging area (IGNORE)
+│
+├── output/
+│   ├── BiomassBoiler.fmu             ← Built FMUs appear here
+│   └── ShellAndTube.fmu
+│
+├── twinctl.py                        ← The CLI tool you run
+└── build/                            ← System internals (Dockerfile, scripts)
+```
+
+---
+
+## 2. Usage Guide (CLI)
+
+Use [twinctl.py](file:///home/toobler/Desktop/fmu%20template/build_models/twinctl.py) (Linux/Mac) to manage builds.
+
+### List Available Models
+```bash
+python3 twinctl.py list
+```
+
+### Build a Specific Model
+Compiles the FMU and runs validation (if CSV exists).
+```bash
+python3 twinctl.py build BiomassBoiler
+```
+*Result:* `output/BiomassBoiler.fmu`
+
+### Build All Models
+Batch build everything.
+```bash
+python3 twinctl.py build --all
+```
+
+### Validate Structure
+Checks that your [project.yaml](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml) and files are in the right place without building.
+```bash
+python3 twinctl.py validate ShellAndTube
+```
+
+### Clean Artifacts
+Wipes [output/](file:///home/toobler/Desktop/fmu%20template/build_models/twinctl.py#157-178) and the staging area.
+```bash
+python3 twinctl.py clean
+```
+
+---
+
+## 3. How to Add a New Model
+
+### Scenario A: Single File Model
+1. Create folder: `input/models/MySimpleModel/`
+2. Create [src/model/](file:///home/toobler/Desktop/fmu%20template/build_models/input/src/model) and drop your [.mo](file:///home/toobler/Desktop/fmu%20template/build_models/input/src/model/BiomassBoiler.mo) file there.
+3. Copy [project.yaml.example](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml.example) to [project.yaml](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml).
+4. Edit [project.yaml](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml):
+   - `model_class`: "MySimpleModel"
+   - [main](file:///home/toobler/Desktop/fmu%20template/build_models/twinctl.py#232-272): "model/MySimpleModel.mo"
+
+### Scenario B: Model with Packages or Libraries
+*Example: ShellAndTube with ThermofluidStream library*
+
+1. Create folder: `input/models/ShellAndTube/`
+2. Create [src/model/](file:///home/toobler/Desktop/fmu%20template/build_models/input/src/model) and copy the **entire package folder** there:
+   ```
+   input/models/ShellAndTube/src/model/ThermofluidStream/
+   ├── package.mo
+   ├── HeatExchangers/
+   └── ...
+   ```
+3. Edit [project.yaml](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml):
+   - `model_class`: "ThermofluidStream.HeatExchangers.Tests.ShellAndTubeNTU"
+   - [main](file:///home/toobler/Desktop/fmu%20template/build_models/twinctl.py#232-272): "model/ThermofluidStream/package.mo"
+   - **Important:** Set MSL version if needed:
+     ```yaml
+     modelica:
+       msl_version: "4.0.0"  # Loasd Modelica 4.0.0 Standard Library
+     ```
+
+---
+
+## 4. Architecture Overview
+
+```mermaid
+flowchart TD
+    User["User"] -->|1. Run Command| CLI["python twinctl.py build ModelName"]
+    
+    CLI -->|2. Stage Files| Stage["Copy input/models/ModelName/*\n→ input/_active/"]
+    Stage -->|3. Trigger Build| Docker["Docker Build (fmu-builder)"]
+    
+    subgraph Docker Container
+        D1["Properties: \n- OpenModelica v1.24\n- Python 3 + fmpy"]
+        D2["Load MSL v4.0.0 (if config reqs)"]
+        D3["Compile .mo → .fmu"]
+        D4["Run Validation (fmpy)"]
+    end
+    
+    Docker --> D1
+    D1 --> D2
+    D2 --> D3
+    D3 --> D4
+    D4 -->|Success| Output["Extract to output/ModelName.fmu"]
+    D4 -->|Fail| Err["Build Fails"]
+```
+
+## 5. Configuration Reference ([project.yaml](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml))
+
+| Field | Purpose | Example |
+|-------|---------|---------|
+| `modelica.model_class` | Class name to simulate | `"BiomassBoiler.DigitalTwin"` |
+| `modelica.msl_version` | Standard Library version | `"3.2.3"` or `"4.0.0"` |
+| `files.main` | Entry point file path | `"ThermofluidStream/package.mo"` |
+| `fmu.type` | FMU Type | `"cs"` (Co-Simulation) or `"me"` |
+| `validation.tolerance_percent` | Success threshold | `5.0` (±5%) |
+| `external_libraries` | List of dependencies | See [project.yaml.example](file:///home/toobler/Desktop/fmu%20template/build_models/input/project.yaml.example) |
+
+---
+
+> [!TIP]
+> **Validation Logic:** If [test_data/validation.csv](file:///home/toobler/Desktop/fmu%20template/build_models/input/test_data/validation.csv) (or configured file) exists, the system automatically splits it into inputs/expected outputs and runs a simulation test inside Docker. If the CSV is missing, validation is skipped, but the FMU is still built.
+

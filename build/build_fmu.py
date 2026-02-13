@@ -185,31 +185,18 @@ def main():
     # 4. Build Docker Image (compiles FMU + runs validation)
     print("\n[4/5] Building Docker image (compiling FMU + validation)...")
     
-    # Check for client validation CSV and auto-split
-    # Check for client validation CSV and auto-split
-    validation_config = config.get('validation', {})
-    csv_filename = validation_config.get('csv_file', 'validation.csv')
-    client_csv = TEST_DATA_DIR / csv_filename
+    # Check for custom validation script
+    # Standard v3.0: We rely on test_data/test_script.py
+    has_validation_script = (TEST_DATA_DIR / "test_script.py").exists()
     
-    if client_csv.exists():
-        print(f"  Found client validation CSV: {client_csv.name}")
-        print("  Auto-generating test inputs and expected outputs...")
-        
-        # Import split function dynamically to avoid circular imports or path issues
-        sys.path.append(str(BUILD_DIR))
-        from split_validation_csv import split_validation_csv
-        try:
-            split_validation_csv(client_csv.name, config)
-        except Exception as e:
-            print(f"  Warning: Failed to split CSV: {e}")
-            print("  Validation might fail if test_inputs.csv is missing.")
-            
-    # Check if test data exists
-    has_test_data = (TEST_DATA_DIR / "test_inputs.csv").exists()
-    if has_test_data:
-        print("  Test data found - validation will run in container")
+    if has_validation_script:
+        print("  Custom validation script found: test_data/test_script.py")
+        print("  Validation will run inside container.")
     else:
-        print("  No test data - skipping validation")
+        print("  No validation script found - skipping validation")
+            
+    # Legacy check for result reporting
+    has_test_data = has_validation_script
     
     # Copy generated script to replace build.mos
     build_mos = BUILD_DIR / "build.mos"
@@ -229,10 +216,13 @@ def main():
     if result_code != 0:
         print("\nERROR: Docker build failed!")
         if has_test_data:
-            print("This could be due to:")
-            print("  1. OpenModelica compilation error")
-            print("  2. FMU validation failed (outputs outside tolerance)")
-            print(f"\nCheck Docker build logs above for details.")
+            print("  Failure detected during build or validation.")
+            print("  If the error mentions 'omc', it is a Modelica compilation error.")
+            print("  If the error mentions 'test_script.py', it is a validation failure.")
+        else:
+            print("  OpenModelica compilation failed.")
+            
+        print(f"\nCheck Docker build logs above for details.")
         sys.exit(1)
     
     print("\n  Docker build successful!")

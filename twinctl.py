@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 # Configuration
-ROOT_DIR = Path(__file__).parent.absolute()
+ROOT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = ROOT_DIR / "input" / "models"
 ACTIVE_DIR = ROOT_DIR / "input" / "_active"
 OUTPUT_DIR = ROOT_DIR / "output"
@@ -56,10 +56,29 @@ def stage_model(model_name):
         sys.exit(1)
 
     print(f"--- Staging model: {model_name} ---")
+    
+    # Retry helper
+    def retry_rmtree(path, retries=3, delay=1.0):
+        import time
+        for i in range(retries):
+            try:
+                shutil.rmtree(path)
+                return
+            except OSError as e:
+                if i == retries - 1:
+                    raise e
+                print(f"  Warning: Cleanup failed ({e}), retrying in {delay}s...")
+                time.sleep(delay)
 
     # Clean active directory
     if ACTIVE_DIR.exists():
-        shutil.rmtree(ACTIVE_DIR)
+        try:
+            retry_rmtree(ACTIVE_DIR)
+        except OSError as e:
+            print(f"Error: Failed to clean staging directory: {e}")
+            print("  Please ensure no files in input/_active/ are open.")
+            sys.exit(1)
+            
     ACTIVE_DIR.mkdir(parents=True)
 
     # Copy model files to active
@@ -212,22 +231,82 @@ def cmd_validate(args):
         sys.exit(1)
     print(f"\n{args.model} structure is valid.")
 
-def cmd_clean(args):
-    """Remove build artifacts"""
-    print("--- twinctl: Cleaning ---")
-    
-    # Clean active staging
-    if ACTIVE_DIR.exists():
-        shutil.rmtree(ACTIVE_DIR)
-        print("  Cleaned: input/_active/")
+    if model_dir.exists():
+        print(f"  [OK]   Model directory: {model_dir}")
+    else:
+        print(f"  [FAIL] Model directory: Missing!")
+        sys.exit(1)
 
-    # Clean output
-    if OUTPUT_DIR.exists():
-        for f in OUTPUT_DIR.iterdir():
-            f.unlink()
-            print(f"  Removed: output/{f.name}")
+    # 1. Load project.yaml
+    config_file = model_dir / "project.yaml"
+    if not config_file.exists():
+        print("  [FAIL] project.yaml: Missing!")
+        sys.exit(1)
+
+    try:
+        import yaml
+        with open(config_file) as f:
+            config = yaml.safe_load(f)
+    except Exception as e:
+        print(f"  [FAIL] project.yaml: Invalid YAML ({e})")
+        sys.exit(1)
+
+    # 2. Extract Interface
+    # ... (rest of validate logic, keeping existing) ...
+    # Actually, I am REPLACING cmd_validate? NO. I need to INSERT cmd_template.
+    # The existing code ends at 275.
+    # I will append cmd_template and update main().
     
-    print("Done.")
+def cmd_template(args):
+    """Generate a validation CSV template for a model"""
+    if not args.model:
+        print("Error: Specify a model name")
+        print(f"Available models: {', '.join(get_available_models()) or 'none'}")
+        sys.exit(1)
+
+    model_dir = MODELS_DIR / args.model
+    if not (model_dir / "project.yaml").exists():
+        print(f"Error: Model '{args.model}' not found or missing project.yaml")
+        sys.exit(1)
+
+    print(f"--- Generating template for {args.model} ---")
+    
+    import yaml
+    import csv
+    
+    with open(model_dir / "project.yaml") as f:
+        config = yaml.safe_load(f)
+    
+    inputs = config.get('interface', {}).get('inputs', [])
+    outputs = config.get('interface', {}).get('outputs', [])
+    
+    if not inputs:
+        print("Warning: No inputs defined in project.yaml interface")
+    
+    # Create Header
+    header = ['time'] + [i['name'] for i in inputs] + [o['name'] for o in outputs]
+    
+    # Create Default Row
+    # Time = 0.0
+    # Inputs = default or 0.0
+    # Outputs = 0.0 (placeholder)
+    row = [0.0]
+    for i in inputs:
+        row.append(i.get('start', 0.0)) # 'start' is sometimes used for default
+    for o in outputs:
+        row.append(0.0)
+        
+    out_dir = model_dir / "test_data"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / "validation_template.csv"
+    
+    with open(out_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        writer.writerow(row)
+        
+    print(f"  Created: {out_file}")
+    print("  Fill this file with your test data and rename to 'validation.csv' to use.")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -236,8 +315,8 @@ def main():
         epilog="""Examples:
   python3 twinctl.py list                 List available models
   python3 twinctl.py build BiomassBoiler  Build a specific model
-  python3 twinctl.py build --all          Build all models
-  python3 twinctl.py validate BiomassBoiler  Check model structure
+  python3 twinctl.py template BiomassBoiler Generate CSV template
+  python3 twinctl.py validate BiomassBoiler Check model structure
 """
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -249,6 +328,10 @@ def main():
     build_parser = subparsers.add_parser("build", help="Build FMU for a model")
     build_parser.add_argument("model", nargs="?", help="Model name from input/models/")
     build_parser.add_argument("--all", action="store_true", help="Build all models")
+
+    # template
+    template_parser = subparsers.add_parser("template", help="Generate validation CSV template")
+    template_parser.add_argument("model", help="Model name")
 
     # validate
     validate_parser = subparsers.add_parser("validate", help="Check model structure")
@@ -263,6 +346,8 @@ def main():
         cmd_list(args)
     elif args.command == "build":
         cmd_build(args)
+    elif args.command == "template":
+        cmd_template(args)
     elif args.command == "validate":
         cmd_validate(args)
     elif args.command == "clean":

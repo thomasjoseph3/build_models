@@ -308,6 +308,32 @@ def cmd_template(args):
     print(f"  Created: {out_file}")
     print("  Fill this file with your test data and rename to 'validation.csv' to use.")
 
+def cmd_clean(args):
+    """Clean up temporary build artifacts"""
+    print("--- Cleaning artifacts ---")
+    
+    # Clean _active staging directory
+    if ACTIVE_DIR.exists():
+        try:
+            shutil.rmtree(ACTIVE_DIR)
+            print(f"  Removed: {ACTIVE_DIR}")
+        except Exception as e:
+            print(f"  Error removing {ACTIVE_DIR}: {e}")
+    else:
+        print(f"  Already clean: {ACTIVE_DIR} not found")
+
+    # Clean build directory temporary files (but keep scripts)
+    # We want to keep build_fmu.py and Dockerfile, but remove generated .mos
+    generated_mos = ROOT_DIR / "build" / "generated_build.mos"
+    if generated_mos.exists():
+        try:
+            generated_mos.unlink()
+            print(f"  Removed: {generated_mos}")
+        except Exception as e:
+            print(f"  Error removing {generated_mos}: {e}")
+            
+    print("Done.")
+
 def main():
     parser = argparse.ArgumentParser(
         description="twinctl - Digital Twin Factory Controller",

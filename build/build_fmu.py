@@ -145,11 +145,6 @@ def generate_build_script(config):
     script += f'    fileNamePrefix="{fmu_config.get("output_name", "DigitalTwin")}",\n'
     script += f'    platforms={{"{fmu_config.get("platform", "static")}"}}\n'
     
-    # Note: solver parameter not supported in buildModelFMU
-    # OpenModelica uses CVODE by default (recommended)
-    # if 'solver' in fmu_config:
-    #     script += f',\n    solver="{fmu_config["solver"]}"'
-    
     script += ");\n\n"
     script += "// Print any errors\n"
     script += "getErrorString();\n"

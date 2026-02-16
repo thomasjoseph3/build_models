@@ -135,6 +135,16 @@ def cmd_build(args):
             print(f"\n{'='*60}")
             print(f"Building: {model}")
             print(f"{'='*60}")
+            
+            # 1. Validation First (Fail Fast)
+            print("Phase 1: Validation")
+            if not validate_single_model(model):
+                print(f"  [FAIL] Validation failed for {model}. Skipping build.")
+                results[model] = "FAIL (Validation)"
+                continue
+            
+            # 2. Build Process
+            print("\nPhase 2: Build")
             try:
                 stage_model(model)
                 subprocess.check_call(
@@ -145,7 +155,7 @@ def cmd_build(args):
                 _rename_output_fmu(model)
                 results[model] = "PASS"
             except (subprocess.CalledProcessError, SystemExit):
-                results[model] = "FAIL"
+                results[model] = "FAIL (Build)"
                 print(f"\nWARNING: Build failed for {model}, continuing...\n")
 
         # Summary
@@ -156,7 +166,7 @@ def cmd_build(args):
             icon = "✅" if status == "PASS" else "❌"
             print(f"  {icon} {model}: {status}")
         
-        failed = sum(1 for s in results.values() if s == "FAIL")
+        failed = sum(1 for s in results.values() if s.startswith("FAIL"))
         if failed:
             print(f"\n{failed}/{len(models)} builds failed.")
             sys.exit(1)
@@ -168,8 +178,16 @@ def cmd_build(args):
             print(f"Available models: {', '.join(get_available_models()) or 'none'}")
             sys.exit(1)
 
+        print(f"--- twinctl: Building {args.model} ---")
+        
+        # 1. Validation First
+        if not validate_single_model(args.model):
+            print(f"\n[FAIL] Validation failed for {args.model}. Build aborted.")
+            sys.exit(1)
+
+        # 2. Build Process
+        print("\n--- Phase 2: Docker Build ---")
         stage_model(args.model)
-        print(f"--- twinctl: Building {args.model} FMU ---")
         run_command(f"{sys.executable} build/build_fmu.py")
         _rename_output_fmu(args.model)
 
@@ -195,16 +213,12 @@ def _rename_output_fmu(model_name):
         shutil.move(str(src_fmu), str(dst_fmu))
         print(f"\n  FMU saved as: output/{model_name}.fmu")
 
-def cmd_validate(args):
-    """Validate model structure"""
-    if not args.model:
-        print("Error: Specify a model name")
-        print(f"Available models: {', '.join(get_available_models()) or 'none'}")
-        sys.exit(1)
+def validate_single_model(model_name):
+    """Run strict validation on a single model. Returns True if valid."""
+    model_dir = MODELS_DIR / model_name
+    print(f"--- twinctl: Validating {model_name} ---")
 
-    model_dir = MODELS_DIR / args.model
-    print(f"--- twinctl: Validating {args.model} ---")
-
+    # 1. Structure Check
     checks = [
         (model_dir / "project.yaml", "Config file"),
         (model_dir / "src", "Source directory"),
@@ -214,49 +228,117 @@ def cmd_validate(args):
     failed = False
     for path, name in checks:
         if path.exists():
-            print(f"  [OK]   {name}: {path.name}")
+            print(f"  [OK]   {name}: Found")
         else:
             print(f"  [FAIL] {name}: Missing!")
             failed = True
 
-    # Check for .mo files
-    mo_files = list((model_dir / "src").rglob("*.mo")) if (model_dir / "src").exists() else []
-    if mo_files:
-        print(f"  [OK]   Modelica files: {len(mo_files)} found")
-    else:
-        print(f"  [FAIL] Modelica files: None found in src/")
-        failed = True
-
     if failed:
-        sys.exit(1)
-    print(f"\n{args.model} structure is valid.")
+        return False
 
-    if model_dir.exists():
-        print(f"  [OK]   Model directory: {model_dir}")
-    else:
-        print(f"  [FAIL] Model directory: Missing!")
-        sys.exit(1)
-
-    # 1. Load project.yaml
+    # 2. YAML Schema Validation
     config_file = model_dir / "project.yaml"
-    if not config_file.exists():
-        print("  [FAIL] project.yaml: Missing!")
-        sys.exit(1)
-
     try:
         import yaml
         with open(config_file) as f:
             config = yaml.safe_load(f)
     except Exception as e:
         print(f"  [FAIL] project.yaml: Invalid YAML ({e})")
+        return False
+
+    def check_field(path, type_cls=None, allowed=None):
+        """Helper to validate nested fields"""
+        val = config
+        for key in path.split('.'):
+            val = val.get(key)
+            if val is None:
+                print(f"  [FAIL] Schema: Missing required field '{path}'")
+                return False
+        
+        if type_cls and not isinstance(val, type_cls):
+            print(f"  [FAIL] Schema: Field '{path}' must be {type_cls.__name__}, got {type(val).__name__}")
+            return False
+            
+        if allowed and val not in allowed:
+            print(f"  [FAIL] Schema: Field '{path}' has invalid value '{val}'. Allowed: {allowed}")
+            return False
+            
+        return True
+
+    schema_errors = 0
+    
+    # Required Sections
+    for section in ['project', 'modelica', 'files', 'fmu']:
+        if section not in config:
+            print(f"  [FAIL] Schema: Missing section '{section}'")
+            schema_errors += 1
+
+    # Field Checks
+    if not check_field('project.name', str): schema_errors += 1
+    if not check_field('modelica.model_class', str): schema_errors += 1
+    if not check_field('files.main', str): schema_errors += 1
+    
+    if not check_field('fmu.type', str, allowed=['cs', 'me']): schema_errors += 1
+    if not check_field('fmu.platform', str, allowed=['static', 'dynamic', 'docker']): schema_errors += 1
+    
+    # Optional Validation Section
+    if 'validation' in config:
+        if not check_field('validation.active', bool): schema_errors += 1
+        # Check numeric fields if present
+        if 'tolerance' in config['validation'] and not isinstance(config['validation']['tolerance'], (int, float)):
+             print(f"  [FAIL] Schema: Field 'validation.tolerance' must be number")
+             schema_errors += 1
+
+    # 3. Content Integrity Check
+    if schema_errors == 0:
+        print("  [OK]   Schema: Valid")
+        
+        # Check files.main existence
+        main_path = config['files']['main']
+        full_main_path = model_dir / "src" / main_path
+        if full_main_path.exists():
+             print(f"  [OK]   files.main: {main_path} (exists)")
+        else:
+             print(f"  [FAIL] files.main: {main_path} NOT FOUND in src/")
+             schema_errors += 1
+    
+    if schema_errors > 0:
+        print(f"\n{model_name} validation FAILED with {schema_errors} errors.")
+        return False
+
+    print(f"\n{model_name} is VALID and ready to build.")
+    return True
+
+def cmd_validate(args):
+    """Validate model structure and configuration schema"""
+    if args.all:
+        models = get_available_models()
+        if not models:
+            print("No models found in input/models/")
+            sys.exit(1)
+        
+        print(f"--- Validating all {len(models)} models ---\n")
+        failed_count = 0
+        for model in models:
+            if not validate_single_model(model):
+                failed_count += 1
+            print("") # Spacer
+            
+        print(f"{'='*60}")
+        if failed_count == 0:
+            print(f"ALL {len(models)} models are VALID ✅")
+        else:
+            print(f"{failed_count}/{len(models)} models FAILED validation ❌")
+            sys.exit(1)
+            
+    elif args.model:
+        if not validate_single_model(args.model):
+            sys.exit(1)
+    else:
+        print("Error: Specify a model name or use --all")
+        print(f"Available models: {', '.join(get_available_models()) or 'none'}")
         sys.exit(1)
 
-    # 2. Extract Interface
-    # ... (rest of validate logic, keeping existing) ...
-    # Actually, I am REPLACING cmd_validate? NO. I need to INSERT cmd_template.
-    # The existing code ends at 275.
-    # I will append cmd_template and update main().
-    
 def cmd_template(args):
     """Generate a validation CSV template for a model"""
     if not args.model:
@@ -341,8 +423,9 @@ def main():
         epilog="""Examples:
   python3 twinctl.py list                 List available models
   python3 twinctl.py build BiomassBoiler  Build a specific model
+  python3 twinctl.py build --all          Build all models
+  python3 twinctl.py validate --all       Validate all models
   python3 twinctl.py template BiomassBoiler Generate CSV template
-  python3 twinctl.py validate BiomassBoiler Check model structure
 """
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -361,7 +444,8 @@ def main():
 
     # validate
     validate_parser = subparsers.add_parser("validate", help="Check model structure")
-    validate_parser.add_argument("model", help="Model name to validate")
+    validate_parser.add_argument("model", nargs="?", help="Model name to validate")
+    validate_parser.add_argument("--all", action="store_true", help="Validate all models")
 
     # clean
     subparsers.add_parser("clean", help="Remove artifacts")

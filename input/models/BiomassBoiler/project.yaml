@@ -31,8 +31,14 @@ files:
 external_libraries: []
 
 validation:
-  # Tolerance for output comparison (±%)
-  tolerance_percent: 5.0
+  active: true
+  csv_file: "test_data/validation.csv"
+  
+  # Enable custom validation logic (looks for test_data/test_script.py)
+  custom: true
+  
+  step_size: 60.0  # 1 minute step size for biomass
+  tolerance: 3.0   # Larger tolerance for this model
   # Validation data must be named 'validation.csv' in input/test_data/
 
 interface:

@@ -14,6 +14,7 @@ fmu:
   version: "2.0"   # FMU version (usually 2.0)
   platform: "static" # "static" compiles binaries into the FMU
   output_name: "DigitalTwin" # The name of the resulting .fmu file
+  builder_image: "openmodelica/openmodelica:v1.25.1-minimal" # Recommended builder image
 
 # Modelica Compiler Settings
 modelica:
@@ -48,23 +49,41 @@ external_libraries: []
 
 # Validation Settings
 validation:
-  # Tolerance for output comparison (±%)
-  tolerance_percent: 5.0
+  active: true
+  csv_file: "test_data/validation.csv"
   
-  # Validation data must be named 'validation.csv' in input/test_data/
+  # Validation Mode
+  # custom: false (default) -> Uses Generic Validator (default_validator.py)
+  # custom: true  -> Uses Custom Script (looks for test_data/test_script.py)
+  custom: false
+  
+  # Optional: Override default script name if custom is true
+  # script: "my_special_test.py"
+  
+  # simulation control (Replaces the loop logic)
+  step_size: 0.1          # Critical for stiff models
+  tolerance: 0.5          # Global pass/fail tolerance
+  start_time: 0.0         # Optional override
+  
+  # Future Scenarios:
+  # relative_tolerance: 0.05  # 5% error margin (better than absolute)
+  # ignore_initial_transient: 10.0 # Ignore first 10s
 
 # Interface Definition
 # Must match the Modelica model's inputs/outputs exactly.
 interface:
+  # The "Connector" - Maps CSV Header -> FMU Variable
   inputs:
-    - name: "input1"
+    - name: "input1"     # CSV Header
       description: "Description"
-      unit: "unit"
+      fmu_variable: "input1"    # FMU Variable (if different)
+      unit: "unit"            # For future unit conversion
       default: 0.0
       range: [0, 10]
   
   outputs:
     - name: "output1"
       description: "Description"
-      unit: "unit"
       fmu_variable: "real.variable.path"
+      unit: "unit"
+      tolerance: 1.0          # Override global tolerance for big numbers

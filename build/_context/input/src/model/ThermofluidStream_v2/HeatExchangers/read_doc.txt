@@ -1,0 +1,104 @@
+# Shell and Tube Heat Exchanger Documentation
+# ThermofluidStream_v2 Library Extension
+
+## Overview
+This documentation covers the implementation of a new **Shell and Tube Heat Exchanger** model using the Effectiveness-NTU method within the `ThermofluidStream_v2` library. This addition allows for the simulation of 1-shell-pass, 2n-tube-pass heat exchangers, a common configuration in industrial applications like oil coolers and condensers.
+
+---
+
+## 1. New Component: `ShellAndTubeNTU.mo`
+
+### Location
+`ThermofluidStream_v2/HeatExchangers/ShellAndTubeNTU.mo`
+
+### Description
+This model represents a Shell and Tube heat exchanger where one fluid flows through the tubes (Tube Side) and another flows over them within a shell (Shell Side). It extends the library's `PartialNTU` base class, inheriting standard connectors and sensor interfaces.
+
+### Scientific Theory & Equations
+The model uses the **Effectiveness-NTU method** to calculate heat transfer. Unlike the `CounterFlowNTU` model which assumes pure counter-current flow, this model accounts for the mixed flow pattern inherent in shell-and-tube designs (TEMA E-type shell).
+
+**Key Variables:**
+*   $\epsilon$ (effectiveness): The ratio of actual heat transfer to the maximum possible heat transfer.
+*   $NTU$ (Number of Transfer Units): A dimensionless parameter representing the heat transfer size of the exchanger ($UA / C_{min}$). 
+*   $C_r$ (Heat Capacity Ratio): $C_{min} / C_{max}$.
+
+**The Governing Equation:**
+For a 1-shell-pass and any even number of tube passes ($2, 4, 6...$), the effectiveness is calculated as:
+
+$$ \epsilon = 2 \left\{ 1 + C_r + \sqrt{1 + C_r^2} \frac{1 + \exp(-\Gamma)}{1 - \exp(-\Gamma)} \right\}^{-1} $$
+
+Where:
+$$ \Gamma = NTU \sqrt{1 + C_r^2} $$
+
+**Implementation Details:**
+*   **Singularity Protection:** The code includes a check `if NTU < 1e-6` to avoid division by zero errors during initialization or zero-flow conditions.
+*   **Assumption:** The model assumes the shell fluid is mixed and the tube fluid is unmixed within a pass, which is the standard assumption for this correlation.
+
+---
+
+## 2. Standard Test: `Tests/ShellAndTubeNTU.mo`
+
+### Location
+`ThermofluidStream_v2/HeatExchangers/Tests/ShellAndTubeNTU.mo`
+
+### Description
+A system-level simulation to verify the component with a Gas-Liquid pair.
+
+**Configuration:**
+*   **Tube Side (A):** Glycol (Liquid) at 60°C.
+*   **Shell Side (B):** Air (Gas) at 20°C.
+*   **Flow:** Moderate flow rates typical for an air-liquid cooling coil.
+
+**Purpose:**
+To verify that the model correctly computes heat transfer when effectiveness is limited by the air side (low heat capacity rate). It serves as a regression test against the `CounterFlow` model.
+
+---
+
+## 3. Industrial Test: `Tests/ShellAndTubeNTU_LiquidLiquid.mo`
+
+### Location
+`ThermofluidStream_v2/HeatExchangers/Tests/ShellAndTubeNTU_LiquidLiquid.mo`
+
+### Description
+A system-level simulation designed to replicate an **Industrial Oil Cooler**.
+
+**Configuration:**
+*   **Tube Side (A):** Incompressible Glycol (Simulating **Engine Oil**) entering at **80°C**.
+*   **Shell Side (B):** Standard Water (Cooling Utility) entering at **20°C**.
+*   **Parameters:**
+    *   **Area ($A$):** $5~m^2$
+    *   **Heat Transfer Coefficient ($k_{NTU}$):** $500~W/m^2K$ (Higher than air models to reflect liquid-liquid contact).
+    *   **Flow Rates:** High mass flow (~1-2 kg/s) to match typical liquid pumping speeds.
+
+**Purpose:**
+To demonstrate the model's versatility. This test proves the component works for high-density, high-heat-capacity fluids where the physics of the shell-and-tube correction factor ($\Gamma$) becomes significant compared to a simple counter-flow assumption.
+
+---
+
+## 4. Usage Instructions
+
+### How to Run
+1.  Open **OMEdit** (OpenModelica Connection Editor).
+2.  Load the `ThermofluidStream_v2` library.
+3.  Navigate to `HeatExchangers.Tests`.
+4.  Double-click `ShellAndTubeNTU` or `ShellAndTubeNTU_LiquidLiquid`.
+5.  Click **Simulate** (the arrow icon).
+
+### How to Verify Results
+After simulation, switch to the Plotting view:
+1.  **Check Energy Balance:** Plot `shellAndTubeNTU.summary.Q_flow_A` and `Q_flow_B`. They should be mirror images (equal magnitude, opposite sign).
+2.  **Check Effectiveness:** Plot `shellAndTubeNTU.effectiveness`. It should stabilize between 0.3 and 0.8 depending on the test case.
+3.  **Check Temperatures:** Plot `multiSensor_Tpm.T` (Inlet) vs `multiSensor_Tpm1.T` (Outlet) to observe the cooling effect.
+
+---
+
+## 5. File Structure Changes
+
+**Modified Files:**
+*   `HeatExchangers/package.order`: Added `ShellAndTubeNTU`.
+*   `HeatExchangers/Tests/package.order`: Added both new tests.
+
+**Created Files:**
+*   `HeatExchangers/ShellAndTubeNTU.mo`
+*   `HeatExchangers/Tests/ShellAndTubeNTU.mo`
+*   `HeatExchangers/Tests/ShellAndTubeNTU_LiquidLiquid.mo`

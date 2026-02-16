@@ -193,38 +193,91 @@ def main():
     builder_image = config['fmu'].get('builder_image', 'openmodelica/openmodelica:v1.24.0-minimal')
     print(f"  Using Builder Image: {builder_image}")
     
-    # Check for custom validation script
-    # Standard v3.0: We rely on test_data/test_script.py
-    has_validation_script = (TEST_DATA_DIR / "test_script.py").exists()
+    # Validation is active if project.yaml says so (default true)
+    validation_active = config.get('validation', {}).get('active', True)
     
-    if has_validation_script:
-        print("  Custom validation script found: test_data/test_script.py")
-        print("  Validation will run inside container.")
+    # --- PREPARE CLEAN BUILD CONTEXT ---
+    # Create a temporary directory to act as the build context.
+    # This prevents sending the entire project (with all other models) to the Docker daemon.
+    context_dir = BUILD_DIR / "_context"
+    if context_dir.exists():
+        shutil.rmtree(context_dir)
+    context_dir.mkdir(parents=True)
+    
+    print(f"  Preparing build context in {context_dir}...")
+    
+    # Copy Dockerfile
+    shutil.copy(BUILD_DIR / "Dockerfile", context_dir / "Dockerfile")
+    
+    # Copy Generated Build Script -> build.mos
+    shutil.copy(script_path, context_dir / "build.mos")
+    
+    # Copy Validator
+    shutil.copy(BUILD_DIR / "default_validator.py", context_dir / "default_validator.py")
+    
+    # Copy Project Config
+    shutil.copy(CONFIG_FILE, context_dir / "project.yaml")
+    
+    # Copy Input Source (Active Model)
+    # We copy input/_active/src/ -> context/input/src/
+    src_dst = context_dir / "input" / "src"
+    shutil.copytree(INPUT_DIR / "src", src_dst)
+    
+    # Copy Test Data
+    test_data_dst = context_dir / "test_data"
+    if (INPUT_DIR / "test_data").exists():
+        shutil.copytree(INPUT_DIR / "test_data", test_data_dst)
     else:
-        print("  No validation script found - skipping validation")
+        test_data_dst.mkdir(parents=True) # Ensure it exists even if empty
+
+    # --- VALIDATION SCRIPT LOGIC ---
+    # Determine which script to run inside the container.
+    # The Dockerfile always looks for "test_data/test_script.py".
+    # We manipulate the build context to ensure the correct file is in that location.
+    
+    if validation_active:
+        val_config = config.get('validation', {})
+        use_custom = val_config.get('custom', False)
+        target_script = test_data_dst / "test_script.py"
+        
+        if use_custom:
+            # Case A: Custom Validation (Explicitly Requested)
+            # 1. Check for specific script name (optional)
+            script_name = val_config.get('script', 'test_script.py')
+            source_script = INPUT_DIR / "test_data" / script_name
             
-    # Legacy check for result reporting
-    has_test_data = has_validation_script
-    
-    # Copy generated script to replace build.mos
-    build_mos = BUILD_DIR / "build.mos"
-    shutil.copy(str(script_path), str(build_mos))
-    
-    # Copy validation script to tests folder (Docker will copy it)
+            if not source_script.exists():
+                print(f"  ERROR: Custom validation requested (custom: true), but script not found: {source_script}")
+                sys.exit(1)
+            
+            print(f"  [Validator] Using Custom Validator: {script_name}")
+            shutil.copy(source_script, target_script)
+            
+        else:
+            # Case B: Generic Validation (Default)
+            print(f"  [Validator] Using Generic Validator (default_validator.py)")
+            # Ensure no stray script exists in context that might trigger the Docker custom logic
+            if target_script.exists():
+                target_script.unlink()
+    else:
+         print(f"  [Validator] Validation is DISABLED in project.yaml")
+
     # Docker build will:
-    # 1. Compile FMU
+    # 1. Compile FMU (using build.mos)
     # 2. Install Python + fmpy
-    # 3. Run validation (if test data exists)
+    # 3. Run validation (using default_validator.py or test_script.py)
     # 4. Exit with error if validation fails
     
-    # Use call instead of run to stream output directly to stdout
-    # Pass BASE_IMAGE as build-arg
-    result_code = subprocess.call(f"docker build --no-cache --build-arg BASE_IMAGE={builder_image} -f build/Dockerfile -t {IMAGE_NAME} .", 
-                          shell=True, cwd=PROJECT_ROOT)
+    # Run Docker Build from CONTEXT DIR
+    result_code = subprocess.call(f"docker build --no-cache --build-arg BASE_IMAGE={builder_image} -t {IMAGE_NAME} .", 
+                          shell=True, cwd=context_dir)
+    
+    # Cleanup Context
+    # shutil.rmtree(context_dir) # Optional: keep for debugging if failed?
     
     if result_code != 0:
         print("\nERROR: Docker build failed!")
-        if has_test_data:
+        if validation_active:
             print("  Failure detected during build or validation.")
             print("  If the error mentions 'omc', it is a Modelica compilation error.")
             print("  If the error mentions 'test_script.py', it is a validation failure.")
@@ -235,7 +288,7 @@ def main():
         sys.exit(1)
     
     print("\n  Docker build successful!")
-    if has_test_data:
+    if validation_active:
         print("  FMU validated inside container - all tests passed!")
     
     # 5. Extract FMU
@@ -259,11 +312,12 @@ def main():
     print(f"FMU Location: {dst_fmu}")
     print(f"FMU Size: {dst_fmu.stat().st_size / 1024:.1f} KB")
     
-    if has_test_data:
+    if validation_active:
         print(f"\nValidation: PASSED (tested inside Docker)")
-        print(f"  Tolerance: ±{config.get('validation', {}).get('tolerance_percent', 5.0)}%")
+        if not use_custom:
+            print(f"  Tolerance: ±{config.get('validation', {}).get('tolerance', 0.5)}")
     else:
-        print(f"\nNo validation performed (no test data provided)")
+        print(f"\nNo validation performed (disabled in project.yaml)")
     
     print(f"\nFMU is ready for delivery!")
 

@@ -1,0 +1,9 @@
+
+output/
+input/_active/
+.git
+.idea
+__pycache__
+*.pyc
+*.fmu
+build_output.log

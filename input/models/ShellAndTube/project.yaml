@@ -32,7 +32,15 @@ files:
 external_libraries: []
 
 validation:
-  tolerance_percent: 5.0
+  active: true
+  csv_file: "test_data/validation.csv"
+  
+  # Use Generic Validator (default_validator.py)
+  custom: false
+  
+  # Simulation parameters (critical for stability)
+  step_size: 0.1
+  tolerance: 5.0
 
 interface:
   inputs:
@@ -75,6 +83,7 @@ interface:
       description: "Heat Transfer Rate"
       unit: "W"
       fmu_variable: "Q_flow"
+      tolerance: 5000.0 # 5kW tolerance for large values
       
     - name: "effectiveness"
       description: "Heat Exchanger Effectiveness (ε)"

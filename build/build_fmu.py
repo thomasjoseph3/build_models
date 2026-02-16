@@ -214,7 +214,7 @@ def main():
     
     # Copy Validator
     shutil.copy(BUILD_DIR / "default_validator.py", context_dir / "default_validator.py")
-    
+
     # Copy Project Config
     shutil.copy(CONFIG_FILE, context_dir / "project.yaml")
     

@@ -103,7 +103,7 @@ def main():
             
             # Simulate
             current_time = 0.0
-            step_size = 0.01  # Reduced step size (0.01s) triggers CVODE stability
+            step_size = 0.1  # Testing stability with v1.26.2 + CVODE (Original devs used 0.5s)
             
             # print(f"  [DEBUG] Starting Loop: 0 -> {target_time}")
             

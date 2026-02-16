@@ -1,6 +1,8 @@
 # Multi-stage Dockerfile: Build FMU + Validate in one container
 # Supports: .mo files, package directories, data files (.txt, .csv, .mat)
-FROM openmodelica/openmodelica:v1.24.0-minimal
+# Base OpenModelica Image (Dynamic Version)
+ARG BASE_IMAGE=openmodelica/openmodelica:v1.24.0-minimal
+FROM ${BASE_IMAGE}
 
 # Stage 1: Build FMU
 WORKDIR /build

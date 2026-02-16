@@ -12,6 +12,8 @@ fmu:
   version: "2.0"
   platform: "static"
   output_name: "ShellAndTubeNTU"
+  # Use new Dynamic Builder Image feature to fix CVODE crash
+  builder_image: "openmodelica/openmodelica:v1.25.1-minimal"
   solver: "cvode"
   tolerance: 1e-6
 

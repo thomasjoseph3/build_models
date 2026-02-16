@@ -11,6 +11,9 @@ loadFile("input/src/model/ThermofluidStream_v2/package.mo");
 getErrorString();
 
 // Build FMU
+setCommandLineOptions("--fmiFlags=s:cvode");
+setCommandLineOptions("--fmuRuntimeDepends=modelica");
+getErrorString();
 buildModelFMU(
     ThermofluidStream_v2.HeatExchangers.Tests.ShellAndTubeNTU,
     version="2.0",

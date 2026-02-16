@@ -138,6 +138,15 @@ def generate_build_script(config):
     
     # Build FMU
     script += "// Build FMU\n"
+    
+    # Conditional Solver Flags (Config-driven, not hardcoded)
+    if fmu_config.get("solver") == "cvode":
+        # CVODE requires specific flags and runtime dependencies to avoid SegFaults
+        # Only enable if explicitly requested in project.yaml
+        script += 'setCommandLineOptions("--fmiFlags=s:cvode");\n'
+        script += 'setCommandLineOptions("--fmuRuntimeDepends=modelica");\n'
+        script += 'getErrorString();\n'
+
     script += "buildModelFMU(\n"
     script += f"    {model_class},\n"
     script += f'    version="{fmu_config.get("version", "2.0")}",\n'
@@ -180,6 +189,10 @@ def main():
     # 4. Build Docker Image (compiles FMU + runs validation)
     print("\n[4/5] Building Docker image (compiling FMU + validation)...")
     
+    # Get Builder Image from config (Default: v1.24.0-minimal)
+    builder_image = config['fmu'].get('builder_image', 'openmodelica/openmodelica:v1.24.0-minimal')
+    print(f"  Using Builder Image: {builder_image}")
+    
     # Check for custom validation script
     # Standard v3.0: We rely on test_data/test_script.py
     has_validation_script = (TEST_DATA_DIR / "test_script.py").exists()
@@ -205,7 +218,8 @@ def main():
     # 4. Exit with error if validation fails
     
     # Use call instead of run to stream output directly to stdout
-    result_code = subprocess.call(f"docker build --no-cache -f build/Dockerfile -t {IMAGE_NAME} .", 
+    # Pass BASE_IMAGE as build-arg
+    result_code = subprocess.call(f"docker build --no-cache --build-arg BASE_IMAGE={builder_image} -f build/Dockerfile -t {IMAGE_NAME} .", 
                           shell=True, cwd=PROJECT_ROOT)
     
     if result_code != 0:
